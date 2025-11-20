@@ -47,14 +47,15 @@ contract BoardStreet {
         uint256 gameId;
         uint32 moveId;
         address player;
-        uint8 dice1;
-        uint8 dice2;
+        uint256 dice1;
+        uint256 dice2;
         uint8 newPosition;
-        uint64 timestamp;
+        uint256 timestamp;
     }
 
     mapping(uint256 => Game) games;
     mapping(address => Player) players;
+    mapping(uint256 => mapping(uint32 => GameMove)) gameMoves;
 
     function createGame(uint256 gameId) external{
         Game memory game = Game({
@@ -74,15 +75,15 @@ contract BoardStreet {
     }
 
     function joinGame(uint256 gameId, uint8 _piece) external {
-        Game storage getGame = games[gameId];
+        Game storage game = games[gameId];
 
-        require(!getGame.started, "Game started already");
-        require(getGame.playerCount < 4, "Game is already complete");
+        require(!game.started, "Game started already");
+        require(game.playerCount < 4, "Game is already complete");
 
         Player memory player = Player({
             gameId: gameId,
             playerAddress: msg.sender,
-            playerId: getGame.playerCount,
+            playerId: game.playerCount,
             position: 0,
             money: 1500,
             piece: _piece,
@@ -94,21 +95,99 @@ contract BoardStreet {
         });
 
         players[msg.sender] = player;
-        getGame.playerCount += 1;
+        game.playerCount += 1;
 
         emit Events.JoinGame(msg.sender, gameId);
     }
 
     function startGame(uint256 gameId) external {
-        Game storage getGame = games[gameId];
+        Game storage game = games[gameId];
 
-        require(msg.sender == getGame.host, "Only host can start game");
-        require(getGame.playerCount >= 2, "Minimum of two players needed to play");
-        require(!getGame.started, "Game started already");
+        require(msg.sender == game.host, "Only host can start game");
+        require(game.playerCount >= 2, "Minimum of two players needed to play");
+        require(!game.started, "Game started already");
 
-        getGame.started = true;
-        getGame.currentPlayer = 0;
+        game.started = true;
+        game.currentPlayer = 0;
 
         emit Events.GameStarted(gameId, msg.sender);
+    }
+
+    function rollDice(uint256 gameId) external returns(uint256 dieOne, uint256 dieTwo) {
+        Game storage game = games[gameId];
+        Player storage player = players[msg.sender];
+
+        require(game.started, "Game not started yet");
+
+
+        bytes32 randomNess = keccak256(abi.encodePacked(block.timestamp, block.gaslimit, msg.sender, block.number));
+
+
+
+        uint256 dieOne = (uint256(randomNess) % 6) + 1;
+        uint256 dieTwo = (uint256(keccak256(abi.encodePacked(randomNess))) % 6) + 1;
+
+        if (player.inJail) {
+            if (dieOne == dieTwo) {
+                player.inJail = false;
+                player.jailTurns = 0;
+            } else {
+                player.jailTurns += 1;
+                if (player.jailTurns >= 3) {
+                    player.inJail = false;
+                    player.jailTurns = 0;
+                    player.money -= 50;
+                } else {
+                    emit Events.DiceRolled(gameId, msg.sender, dieOne, dieTwo, true);
+
+                    return (dieOne, dieTwo);
+                }
+            }
+        }
+
+        uint8 total = uint8(dieOne + dieTwo);
+        uint8 newPosition = player.position + total;
+
+        if (newPosition >= 40) {
+            player.money += 200;
+            newPosition = uint8(newPosition % 40);
+        }
+
+        player.position = newPosition;
+
+        uint32 moveCount = getMoveCount(gameId);
+
+        GameMove memory gameMove = GameMove({
+            gameId: gameId,
+            moveId: moveCount,
+            player: msg.sender,
+            dice1: dieOne,
+            dice2: dieTwo,
+            newPosition: newPosition,
+            timestamp: block.timestamp
+        });
+
+        gameMoves[gameId][moveCount] = gameMove;
+
+        emit Events.DiceRolled(gameId, msg.sender, dieOne, dieTwo, false);
+
+        return (dieOne, dieTwo);
+    }
+
+
+    function getMoveCount(uint256 gameId) internal returns (uint32) {
+        uint32 count = 0;
+        uint32 i = 0;
+
+        while (i < 1000) {
+            GameMove memory gameMove = gameMoves[gameId][i];
+            if (gameMove.timestamp == 0) {
+                break;
+            }
+            count += 1;
+            i += 1;
+        }
+
+        return count;
     }
 }

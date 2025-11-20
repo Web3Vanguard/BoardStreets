@@ -6,7 +6,7 @@ interface IBoardGame {
     function createGame(uint256 gameId) external;
     function joinGame( uint256 gameId, uint8 piece) external;
     function startGame( uint256 gameId) external;
-    function rollDice( uint256 gameId) external returns (uint8 diceOne, uint8 diceTwo);  // return type -> (u8, u8)
+    function rollDice( uint256 gameId) external returns (uint256 dieOne, uint256 dieTwo);  // return type -> (u8, u8)
     function buyProperty( uint256 gameId, uint8 position) external;
     function buyHouse( uint256 gameId, uint8 position) external;
     function sellHouse( uint256 gameId, uint8 position) external;
