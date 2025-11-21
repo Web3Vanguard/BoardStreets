@@ -17,4 +17,5 @@ library Events {
     event GameWon(uint256, address);
     event PlayerBankRupt(uint256, address);
     event TurnChanged(uint256, uint8);
+    event RentPaid(uint256, address)
 }

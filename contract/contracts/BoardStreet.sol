@@ -389,6 +389,30 @@ contract BoardStreet {
 
     }
 
+    function payRent( uint256 gameId, uint8 propertyPosition) external {
+        Player storage player = players[msg.sender];
+        Property storage property = properties[gameId][propertyPosition];
+
+        require(property.owner != address(0), "Property not owned");
+        require(property.owner != msg.sender, "You own this property");
+        require(!property.mortgaged, "Property is mortgaged");
+
+        uint256 rent = calculateRent(property.rentBase, property.houses);
+        require(player.money >= rent, "Insufficient money for rent");
+
+        player.money -= uint32(rent);
+        players[property.owner].money += uint32(rent);
+
+        emit Events.RentPaid(gameId, msg.sender);
+
+    }
+
+    function calculateRent(uint256 baseRent, uint8 houses) internal returns(uint256) {
+        uint256[6] memory multipliers = [uint256(1), 5, 15, 45, 80, 125];
+        uint256 multiplier = multipliers[houses];
+        baseRent * multiplier;
+    }
+
     function countActivePlayer(uint256 gameId) internal returns(uint8 count) {
         Game storage game = games[gameId];
         uint8 count = 0;
