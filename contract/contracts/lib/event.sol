@@ -14,4 +14,7 @@ library Events {
     event PropertyUnMortgaged(uint256, address, uint8, uint32);
     event JailFreeCardUsed(uint256, address);
     event PaidToLeaveJail(uint256, address, uint8);
+    event GameWon(uint256, address);
+    event PlayerBankRupt(uint256, address);
+    event TurnChanged(uint256, uint8);
 }

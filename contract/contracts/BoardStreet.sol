@@ -12,6 +12,7 @@ contract BoardStreet {
     mapping(address => Player) players;
     mapping(uint256 => mapping(uint32 => GameMove)) gameMoves;
     mapping(uint256 => mapping(uint8 => Property)) properties;
+    mapping(uint256 => mapping(uint256 => address)) playerAddresses;
     address public NFTToken;
 
     constructor(address _NFTToken) {
@@ -104,6 +105,7 @@ contract BoardStreet {
         });
 
         players[msg.sender] = player;
+        playerAddresses[gameId][uint8(game.playerCount)] = msg.sender;
         game.playerCount += 1;
 
         emit Events.JoinGame(msg.sender, gameId);
@@ -334,5 +336,98 @@ contract BoardStreet {
         player.money -= 50;
 
         emit Events.PaidToLeaveJail(gameId, msg.sender, 50);
+    }
+
+    function declareBankruptcy(uint256 gameId) external {
+        Player storage player = players[msg.sender];
+        Game storage game = games[gameId];
+
+        require(player.money < 0, "Not bankruptcy");
+
+        player.bankRupt = true;
+        player.isActive = false;
+
+        uint8 pos = 0;
+
+        while (pos < 40) {
+            Property storage property = properties[gameId][pos];
+            if (property.owner == msg.sender) {
+                property.owner = address(0);
+                property.houses = 0;
+                property.mortgaged = false;
+
+            }
+        pos += 1;
+        }
+
+        uint8 activePlayers = countActivePlayer(gameId);
+        if (activePlayers == 1) {
+            game.winner = getLastActivePlayer(gameId);
+
+            emit Events.GameWon(gameId,game.winner);
+        }
+
+
+        emit Events.PlayerBankRupt(gameId, msg.sender);
+    }
+
+    function nextTurn(uint256 gameId) external {
+        Game storage game = games[gameId];
+        Player memory player = players[msg.sender];
+
+        if (player.playerId == game.currentPlayer) {
+            while (true) {
+                game.currentPlayer = (game.currentPlayer + 1) % game.playerCount;
+                address nextPlayerAddress = getPlayerAddress(gameId, game.currentPlayer);
+                Player memory nextPlayer = players[nextPlayerAddress];
+                if (!nextPlayer.bankRupt) {
+                    break;
+                }
+            }
+            emit Events.TurnChanged(gameId, game.currentPlayer);
+        }
+
+    }
+
+    function countActivePlayer(uint256 gameId) internal returns(uint8 count) {
+        Game storage game = games[gameId];
+        uint8 count = 0;
+        uint8 i = 0;
+
+        while (i < game.playerCount) {
+            address playerAddress = getPlayerAddress(gameId, i);
+            Player storage player = players[playerAddress];
+
+            if (!player.bankRupt) {
+                count += 1;
+            }
+            i += 1;
+        }
+
+        count;
+
+    }
+
+    function getLastActivePlayer(uint256 gameId) internal returns (address) {
+        Game memory game = games[gameId];
+        uint8 i = 0;
+
+        while (i < game.playerCount) {
+            address playerAddress = getPlayerAddress(gameId, i);
+            Player memory player = players[playerAddress];
+
+            if (!player.bankRupt) {
+                return playerAddress;
+            }
+            i += 1;
+        }
+
+        address(0);
+    }
+
+   
+
+    function getPlayerAddress(uint256 gameId, uint8 playerId) internal returns(address playerAddress){
+        address playerAddress = playerAddresses[gameId][playerId];
     }
 }
