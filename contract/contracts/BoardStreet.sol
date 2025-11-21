@@ -244,4 +244,51 @@ contract BoardStreet {
 
         emit Events.HouseBought(gameId, msg.sender, position, property.houses);
     }
+
+    function sellHouse(uint256 gameId, uint8 position) external {
+        Player storage player = players[msg.sender];
+        Property storage property = property[gameId][position];
+
+        require(property.owner == msg.sender, "Not your property");
+        require(property.houses > 0, "No houses to sell");
+
+        BoardStreetNFT NFTTokenContract = BoardStreetNFT(NFTToken);
+
+        if (property.houses == 5) {
+            uint256 hotelTokenId = 2000 + uint256(position);
+
+            NFTTokenContract.burn(msg.sender, hotelTokenId, 1);
+
+            uint256 houseTokenId = 1000 + uint256(position);
+            NFTTokenContract.mint(msg.sender, houseTokenId, 4, bytes(abi.encodePacked("")));
+        } else {
+            uint256 houseTokenId = 1000 + uint256(position);
+            NFTTokenContract.burn(msg.sender, houseTokenId, 1);
+        }
+
+        uint32 sellPrice = property.housePrice / 2;
+        player.money += sellPrice;
+        property.houses -= 1;
+
+        emit Events.HouseSold(gameId, msg.sender, position, property.houses, sellPrice);
+
+
+    }
+
+    function mortgageProperty(uint256 gameId, uint8 position) external {
+        Player storage player = players[msg.sender];
+        Property storage property = property[gameId][position];
+
+        require(property.owner == msg.sender, "Not your property");
+        require(!property.mortgaged, "Property already mortgaged");
+        require(property.houses == 0, "Sell houses first");
+
+        uint32 mortgageValue = property.price / 2;
+        player.money += mortgageValue;
+        property.mortgaged = true;
+
+        emit Events.PropertyMortgaged(gameId, msg.sender, position, mortgageValue);
+
+
+    }
 }
