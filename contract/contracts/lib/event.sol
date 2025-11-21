@@ -7,4 +7,6 @@ library Events {
     event JoinGame(address player, uint256 gameId);
     event GameStarted(uint256 gameId, address host);
     event DiceRolled(uint256 gameId, address player, uint256 dieOne, uint256 dieTwo, bool stillInJail);
+    event PropertyPurchased(uint256 gameId, address, uint8, uint32);
+    event HouseBought(uint256, address, uint8, uint8);
 }

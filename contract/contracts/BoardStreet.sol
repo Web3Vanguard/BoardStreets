@@ -4,8 +4,19 @@ pragma solidity ^0.8.28;
 
 import "./interfaces/IBoardGame.sol";
 import "./lib/event.sol";
+import "./NFTToken.sol";
 
 contract BoardStreet {
+
+    mapping(uint256 => Game) games;
+    mapping(address => Player) players;
+    mapping(uint256 => mapping(uint32 => GameMove)) gameMoves;
+    mapping(uint256 => mapping(uint8 => Property)) property;
+    address public NFTToken;
+
+    constructor(address _NFTToken) {
+        NFTToken = _NFTToken;
+    }
 
     struct Game {
         uint256 gameId;
@@ -53,9 +64,7 @@ contract BoardStreet {
         uint256 timestamp;
     }
 
-    mapping(uint256 => Game) games;
-    mapping(address => Player) players;
-    mapping(uint256 => mapping(uint32 => GameMove)) gameMoves;
+    
 
     function createGame(uint256 gameId) external{
         Game memory game = Game({
@@ -189,5 +198,50 @@ contract BoardStreet {
         }
 
         return count;
+    }
+
+    function buyProperty(uint256 gameId, uint8 position) external {
+        Player storage player = players[msg.sender];
+        Property storage property = property[gameId][position];
+
+        require(property.owner == address(0), "Property already owned");
+        require(player.money >= property.price, "Insufficient money to buy property");
+
+        player.money -= property.price;
+        property.owner = msg.sender;
+
+
+        BoardStreetNFT(NFTToken).mint(msg.sender, uint256(position), 1, bytes(abi.encodePacked("")));
+
+        emit Events.PropertyPurchased(gameId, msg.sender, position, property.price);
+    }
+
+
+    function buyHouse(uint256 gameId, uint8 position) external {
+        Player storage player = players[msg.sender];
+        Property storage property = property[gameId][position];
+
+        require(property.owner == msg.sender, "You do not own the property");
+        require(property.houses < 5, "Only maximum of five houses per hotel");
+        require(!property.mortgaged, "Property is already mortgaged");
+        require(player.money >= property.housePrice, "Insufficient funds to make purchase");
+        
+        player.money -= property.housePrice;
+        property.houses += 1;
+
+        BoardStreetNFT NFTTokenContract = BoardStreetNFT(NFTToken);
+
+        if (property.houses == 5) {
+            uint256 houseTokenID = 1000 + uint256(position);
+            NFTTokenContract.burn(msg.sender, houseTokenID, 4);
+
+            uint256 hotelTokenId = 2000 + uint256(position);
+            NFTTokenContract.mint(msg.sender, hotelTokenId, 1, bytes(abi.encodePacked("")));
+        } else {
+            uint256 houseTokenId = 1000 + uint256(position);
+            NFTTokenContract.mint(msg.sender, houseTokenId, 1, bytes(abi.encodePacked("")));
+        }
+
+        emit Events.HouseBought(gameId, msg.sender, position, property.houses);
     }
 }
