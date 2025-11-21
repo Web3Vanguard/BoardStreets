@@ -11,4 +11,7 @@ library Events {
     event HouseBought(uint256, address, uint8, uint8);
     event HouseSold(uint256, address, uint8, uint8, uint32);
     event PropertyMortgaged(uint256, address, uint8, uint32);
+    event PropertyUnMortgaged(uint256, address, uint8, uint32);
+    event JailFreeCardUsed(uint256, address);
+    event PaidToLeaveJail(uint256, address, uint8);
 }

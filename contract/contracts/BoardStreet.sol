@@ -11,7 +11,7 @@ contract BoardStreet {
     mapping(uint256 => Game) games;
     mapping(address => Player) players;
     mapping(uint256 => mapping(uint32 => GameMove)) gameMoves;
-    mapping(uint256 => mapping(uint8 => Property)) property;
+    mapping(uint256 => mapping(uint8 => Property)) properties;
     address public NFTToken;
 
     constructor(address _NFTToken) {
@@ -202,7 +202,7 @@ contract BoardStreet {
 
     function buyProperty(uint256 gameId, uint8 position) external {
         Player storage player = players[msg.sender];
-        Property storage property = property[gameId][position];
+        Property storage property = properties[gameId][position];
 
         require(property.owner == address(0), "Property already owned");
         require(player.money >= property.price, "Insufficient money to buy property");
@@ -219,7 +219,7 @@ contract BoardStreet {
 
     function buyHouse(uint256 gameId, uint8 position) external {
         Player storage player = players[msg.sender];
-        Property storage property = property[gameId][position];
+        Property storage property = properties[gameId][position];
 
         require(property.owner == msg.sender, "You do not own the property");
         require(property.houses < 5, "Only maximum of five houses per hotel");
@@ -247,7 +247,7 @@ contract BoardStreet {
 
     function sellHouse(uint256 gameId, uint8 position) external {
         Player storage player = players[msg.sender];
-        Property storage property = property[gameId][position];
+        Property storage property = properties[gameId][position];
 
         require(property.owner == msg.sender, "Not your property");
         require(property.houses > 0, "No houses to sell");
@@ -277,7 +277,7 @@ contract BoardStreet {
 
     function mortgageProperty(uint256 gameId, uint8 position) external {
         Player storage player = players[msg.sender];
-        Property storage property = property[gameId][position];
+        Property storage property = properties[gameId][position];
 
         require(property.owner == msg.sender, "Not your property");
         require(!property.mortgaged, "Property already mortgaged");
@@ -290,5 +290,49 @@ contract BoardStreet {
         emit Events.PropertyMortgaged(gameId, msg.sender, position, mortgageValue);
 
 
+    }
+
+    function unMortgageProperty(uint256 gameId, uint8 position) external {
+        Player storage player = players[msg.sender];
+        Property storage property = properties[gameId][position];
+
+        require(property.owner == msg.sender, "Not your property");
+        require(property.mortgaged, "Not mortgaged");
+
+        uint32 unmortgageCost = (property.price * 55) / 100;
+        require(player.money >= unmortgageCost, "Insufficient money");
+
+        player.money -= unmortgageCost;
+        property.mortgaged = false;
+
+        emit Events.PropertyUnMortgaged(gameId, msg.sender, position, unmortgageCost);
+
+
+    }
+
+    function useJailFreeCard(uint256 gameId) external {
+        Player storage player = players[msg.sender];
+
+        require(player.inJail, "Not in Jail");
+        require(player.jailGetOutFree > 0, "No card available");
+
+        player.inJail = false;
+        player.jailTurns = 0;
+        player.jailGetOutFree -= 1;
+
+        emit Events.JailFreeCardUsed(gameId, msg.sender);
+    }
+
+    function payToLeaveJail(uint256 gameId) external {
+        Player storage player = players[msg.sender];
+
+        require(player.inJail, "Not in jail");
+        require(player.money >= 50, "Not enough money");
+
+        player.inJail = false;
+        player.jailTurns = 0;
+        player.money -= 50;
+
+        emit Events.PaidToLeaveJail(gameId, msg.sender, 50);
     }
 }
